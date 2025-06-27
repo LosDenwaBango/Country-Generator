@@ -1,0 +1,3 @@
+# This is a premium nearly-done checkpoint version of the app.
+# (No code changes, just a copy of the current working version)
+# ... existing code ... 
