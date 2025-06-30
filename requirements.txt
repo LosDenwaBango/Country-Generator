@@ -4,7 +4,7 @@ dash-mantine-components==0.12.1
 plotly==5.20.0
 numpy==1.26.4
 pandas==2.2.2
-pillow==10.3.0
+pillow==10.4.0
 requests==2.31.0
 pycountry==23.12.11
 pycountry-convert==0.7.2
