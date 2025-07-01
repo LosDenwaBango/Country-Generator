@@ -283,8 +283,14 @@ app.layout = dmc.MantineProvider(
         html.Br(),
                 html.Div([
                     html.Button("Add countries of residence", id="toggle_residence_btn", n_clicks=0, style={"backgroundColor": "#e0e0e0", "color": "#222", "border": "none", "padding": "10px 18px", "marginRight": "16px", "borderRadius": "6px", "fontWeight": 600, "fontSize": "15px", "cursor": "pointer"}),
+                    dcc.Checklist(
+                        id='flip_timeline',
+                        options=[{'label': 'Show most recent at top', 'value': 'flip'}],
+                        value=[],
+                        style={'marginBottom': '16px', 'marginTop': '8px'}
+                    ),
                     dbc.Button("Generate!", id="generate_btn", color="primary", n_clicks=0),
-                ], style={"display": "flex", "flexDirection": "row", "alignItems": "center"}),
+                ], style={"display": "flex", "flexDirection": "column", "alignItems": "flex-start", "gap": "8px"}),
             ], style={"maxWidth": "1200px", "margin": "0 auto"}),
         html.Br(),
             html.Div(id="summary"),
@@ -446,9 +452,10 @@ def update_visit_month_options(selected_year, dob_month, dob_year, selected_mont
     State({"type": "res_until_year", "index": dash.ALL}, "value"),
     State({"type": "res_until_month", "index": dash.ALL}, "value"),
     State("user_name", "value"),
+    State('flip_timeline', 'value'),
     prevent_initial_call=True
 )
-def generate_plot(n_clicks, dob_month, dob_year, selected_labels, visit_months, visit_years, month_ids, year_ids, res_countries, res_from_years, res_from_months, res_until_years, res_until_months, user_name):
+def generate_plot(n_clicks, dob_month, dob_year, selected_labels, visit_months, visit_years, month_ids, year_ids, res_countries, res_from_years, res_from_months, res_until_years, res_until_months, user_name, flip_timeline):
     if not selected_labels:
         return "Please select at least one country and enter the age you first visited.", None
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -464,7 +471,11 @@ def generate_plot(n_clicks, dob_month, dob_year, selected_labels, visit_months, 
         age = (info["visit_year"] - dob_year) + (info["visit_month"] - dob_month) / 12
         visited.append({'country': c, 'age': age, 'visit_month': info["visit_month"], 'visit_year': info["visit_year"]})
     visited_sorted = sorted(visited, key=lambda x: x['age'])
-    visited_sorted_chart = list(reversed(visited_sorted))
+    # Flip order if toggle is set, otherwise oldest at top
+    if flip_timeline and 'flip' in flip_timeline:
+        visited_sorted_chart = list(reversed(visited_sorted))
+    else:
+        visited_sorted_chart = visited_sorted
     if not visited_sorted_chart:
         return "Please select at least one country and enter the age you first visited.", None
     country_names = [c['country']['name'] for c in visited_sorted_chart]
