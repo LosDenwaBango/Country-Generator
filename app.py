@@ -607,7 +607,7 @@ def generate_plot(n_clicks, dob_month, dob_year, selected_labels, visit_months, 
         line=dict(color="black", width=4),
         layer="above"
     )
-    # Add country name/age annotations, dynamically position to right or left of flag
+    # Add country name/visit date annotations, dynamically position to right or left of flag
     label_width = 2.5  # estimate of label width in data units
     for i, c in enumerate(visited_sorted_chart):
         visit_age = c['age']
@@ -618,16 +618,21 @@ def generate_plot(n_clicks, dob_month, dob_year, selected_labels, visit_months, 
         if ann_x + label_width > x_axis_max:
             ann_x = max(visit_age - 2.7, 0)
             ann_xanchor = "right"
+        visit_month_str = months[c['visit_month'] - 1] if 1 <= c['visit_month'] <= 12 else str(c['visit_month'])
+        visit_year_str = str(c['visit_year'])[-2:] if c['visit_year'] else ''
+        text = f"{c['country']['name']} ({visit_month_str}, {visit_year_str})"
         fig.add_annotation(
             x=ann_x,
             y=i,
-            text=f"{c['country']['name']} ({c['age']:.1f})",
+            text=text,
             showarrow=False,
             font=dict(size=14, family="Arial, sans-serif", color="#222"),
             xanchor=ann_xanchor,
             yanchor="middle",
             align="left",
-            bgcolor="rgba(255,255,255,0.0)",
+            bgcolor="rgba(255,255,255,0.7)",
+            bordercolor="#ccc",
+            borderwidth=1,
             borderpad=2,
             opacity=1
         )
