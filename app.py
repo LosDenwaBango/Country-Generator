@@ -1022,4 +1022,5 @@ def show_visit_label(selected_countries):
         return {"fontSize": 14, "marginBottom": "18px", "display": "none"}
 
 if __name__ == "__main__":
-    app.run(debug=True) 
+    import os
+    app.run_server(host="0.0.0.0", port=int(os.environ.get("PORT", 8050)))
