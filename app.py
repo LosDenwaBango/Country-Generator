@@ -17,6 +17,7 @@ import dash_mantine_components as dmc
 from dash.exceptions import PreventUpdate
 from dash import ctx
 from dash import callback_context
+import unicodedata
 
 # --- Data Preparation (same as Streamlit version) ---
 continent_map = {
@@ -70,7 +71,132 @@ for country in list(pycountry.countries):
             "alpha_2": country.alpha_2,
             "continent": get_continent(country.alpha_2)
         })
+
+# Ensure Turkey is always called 'Turkey' in COUNTRY_LIST
+for c in COUNTRY_LIST:
+    if c['alpha_2'] == 'TR':
+        c['name'] = 'Turkey'
 country_options = [f"{c['name']} ({c['alpha_2']})" for c in COUNTRY_LIST]
+
+# --- Alternative/Common Country Names Mapping ---
+ALTERNATIVE_NAMES = {
+    'great britain': 'GB',
+    'britain': 'GB',
+    'united kingdom': 'GB',
+    'uk': 'GB',
+    'england': 'GB',
+    'holland': 'NL',
+    'netherlands': 'NL',
+    'usa': 'US',
+    'united states': 'US',
+    'united states of america': 'US',
+    'south korea': 'KR',
+    'north korea': 'KP',
+    'czech republic': 'CZ',
+    'ivory coast': 'CI',
+    'vatican': 'VA',
+    'vatican city': 'VA',
+    'russia': 'RU',
+    'laos': 'LA',
+    'moldova': 'MD',
+    'slovakia': 'SK',
+    'syria': 'SY',
+    'palestine': 'PS',
+    'venezuela': 'VE',
+    'bolivia': 'BO',
+    'brunei': 'BN',
+    'cape verde': 'CV',
+    'congo': 'CG',
+    'democratic republic of the congo': 'CD',
+    'iran': 'IR',
+    'north macedonia': 'MK',
+    'myanmar': 'MM',
+    'burma': 'MM',
+    'taiwan': 'TW',
+    'tanzania': 'TZ',
+    'vietnam': 'VN',
+    'turkey': 'TR',
+    'cabo verde': 'CV',
+    'eswatini': 'SZ',
+    'swaziland': 'SZ',
+    'timor-leste': 'TL',
+    'east timor': 'TL',
+    'micronesia': 'FM',
+    'macao': 'MO',
+    'macau': 'MO',
+    'moldova': 'MD',
+    'são tomé and príncipe': 'ST',
+    'sao tome and principe': 'ST',
+    'south sudan': 'SS',
+    'sudan': 'SD',
+    'syria': 'SY',
+    'venezuela': 'VE',
+    'yemen': 'YE',
+    "côte d'ivoire": 'CI',
+    'cote d ivoire': 'CI',
+    "cote d'ivoire": 'CI',
+    'ivory coast': 'CI',
+    'türkiye': 'TR',
+    'turkiye': 'TR',
+}
+
+def normalize_str(s):
+    if not s:
+        return ''
+    return ''.join(c for c in unicodedata.normalize('NFKD', s).lower() if not unicodedata.combining(c))
+
+# --- Build country_options with normalized and alternative names ---
+COUNTRY_LOOKUP = {}
+country_options = []
+for c in COUNTRY_LIST:
+    if c['alpha_2'] == 'TR':
+        country_options.append('Turkey (TR)')
+    else:
+        country_options.append(f"{c['name']} ({c['alpha_2']})")
+existing_labels = set(country_options)
+for c in COUNTRY_LIST:
+    # Add normalized official name and code
+    norm_name = normalize_str(c['name'])
+    norm_code = normalize_str(c['alpha_2'])
+    COUNTRY_LOOKUP[norm_name] = c
+    COUNTRY_LOOKUP[norm_code] = c
+# Add alternative names as visible options
+for alt, code in ALTERNATIVE_NAMES.items():
+    match = next((c for c in COUNTRY_LIST if c['alpha_2'] == code), None)
+    if match:
+        alt_label = f"{alt.title()} ({code})"
+        if alt_label not in existing_labels:
+            country_options.append(alt_label)
+            existing_labels.add(alt_label)
+        COUNTRY_LOOKUP[normalize_str(alt)] = match
+# For dropdown, show official names, but search will use normalized/alt names
+country_options = [f"{c['name']} ({c['alpha_2']})" for c in COUNTRY_LIST]
+
+# --- Custom search/filter for country dropdown ---
+def custom_country_search(search_value, options):
+    norm_search = normalize_str(search_value)
+    matches = []
+    for opt in options:
+        # Extract country name and code
+        if '(' in opt and ')' in opt:
+            name, code = opt.rsplit('(', 1)
+            name = name.strip()
+            code = code.replace(')', '').strip()
+        else:
+            name = opt
+            code = ''
+        norm_name = normalize_str(name)
+        norm_code = normalize_str(code)
+        # Check direct match
+        if norm_search in norm_name or norm_search in norm_code:
+            matches.append(opt)
+            continue
+        # Check alternative/common names
+        for alt, alt_code in ALTERNATIVE_NAMES.items():
+            if norm_search in normalize_str(alt) and alt_code == code:
+                matches.append(opt)
+                break
+    return matches
 
 # --- Dash App Layout ---
 today = datetime.date.today()
@@ -130,15 +256,15 @@ app.layout = dmc.MantineProvider(
                     # Big header 'Timeline of first visits' now removed, only subheader remains
             dmc.MultiSelect(
                 id="country_select",
-                        data=[label for label in country_options],
+                data=country_options,
                 value=[],
-                        placeholder="Where have you visited?",
+                placeholder="Where have you visited?",
                 searchable=True,
                 clearable=True,
                 maxDropdownHeight=300,
-                        style={"width": "510px"},
-                        disabled=True
-                    ),
+                style={"width": "510px"},
+                disabled=True,
+            ),
                     dcc.Interval(id="country_select_timer", interval=2000, n_intervals=0, max_intervals=1),
                 ], style={"flex": 1, "minWidth": "520px", "maxWidth": "600px", "marginBottom": "24px"}),
                 html.Div(
@@ -1044,6 +1170,23 @@ def show_visit_label(selected_countries):
         return {"fontSize": 14, "marginBottom": "18px", "display": "block"}
     else:
         return {"fontSize": 14, "marginBottom": "18px", "display": "none"}
+
+# Add a callback to update the data prop of country_select based on search input
+@app.callback(
+    Output("country_select", "data"),
+    Input("country_select", "searchValue"),
+    State("country_select", "value"),
+)
+def update_country_options(search_value, selected):
+    if not search_value:
+        return country_options
+    matches = custom_country_search(search_value, country_options)
+    # Always include currently selected values so they don't disappear
+    if selected:
+        for val in selected:
+            if val not in matches and val in country_options:
+                matches.append(val)
+    return matches
 
 if __name__ == "__main__":
     import os
