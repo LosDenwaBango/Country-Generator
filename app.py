@@ -206,6 +206,7 @@ months_full = ["January", "February", "March", "April", "May", "June", "July", "
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
 app.layout = dmc.MantineProvider(
     html.Div([
+        dcc.Store(id='user-progress', storage_type='local'),
         html.Div([
             dbc.Container([
                 html.H2("A Country a Year", style={"marginBottom": "16px"}),
@@ -1187,6 +1188,60 @@ def update_country_options(search_value, selected):
             if val not in matches and val in country_options:
                 matches.append(val)
     return matches
+
+# Callback to save progress
+@app.callback(
+    Output('user-progress', 'data'),
+    Input('user_name', 'value'),
+    Input('dob_year', 'value'),
+    Input('dob_month', 'value'),
+    Input('country_select', 'value'),
+    Input({'type': 'visit_year', 'code': ALL}, 'value'),
+    Input({'type': 'visit_month', 'code': ALL}, 'value'),
+    Input({'type': 'visit_year', 'code': ALL}, 'id'),
+    Input({'type': 'visit_month', 'code': ALL}, 'id'),
+    Input({'type': 'res_country', 'index': ALL}, 'value'),
+    Input({'type': 'res_from_year', 'index': ALL}, 'value'),
+    Input({'type': 'res_from_month', 'index': ALL}, 'value'),
+    Input({'type': 'res_until_year', 'index': ALL}, 'value'),
+    Input({'type': 'res_until_month', 'index': ALL}, 'value'),
+)
+def save_progress(user_name, dob_year, dob_month, countries, visit_years, visit_months, visit_year_ids, visit_month_ids, res_countries, res_from_years, res_from_months, res_until_years, res_until_months):
+    return {
+        'user_name': user_name,
+        'dob_year': dob_year,
+        'dob_month': dob_month,
+        'countries': countries,
+        'visit_years': visit_years,
+        'visit_months': visit_months,
+        'visit_year_ids': visit_year_ids,
+        'visit_month_ids': visit_month_ids,
+        'res_countries': res_countries,
+        'res_from_years': res_from_years,
+        'res_from_months': res_from_months,
+        'res_until_years': res_until_years,
+        'res_until_months': res_until_months,
+    }
+
+# Callback to load progress (only restore main selectors)
+@app.callback(
+    Output('user_name', 'value'),
+    Output('dob_year', 'value'),
+    Output('dob_month', 'value'),
+    Output('country_select', 'value'),
+    Input('user-progress', 'modified_timestamp'),
+    State('user-progress', 'data'),
+    prevent_initial_call=True
+)
+def load_progress(ts, data):
+    if not data:
+        return [dash.no_update] * 4
+    return (
+        data.get('user_name'),
+        data.get('dob_year'),
+        data.get('dob_month'),
+        data.get('countries'),
+    )
 
 if __name__ == "__main__":
     import os
