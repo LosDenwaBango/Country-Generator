@@ -504,8 +504,17 @@ def generate_plot(n_clicks, dob_month, dob_year, selected_labels, visit_months, 
             borderpad=2,
             opacity=1
         )
+    # Set chart title based on user_name
+    if user_name and str(user_name).strip():
+        name = str(user_name).strip()
+        if name[-1].lower() == 's':
+            chart_title = f"{name}' Countries Visited"
+        else:
+            chart_title = f"{name}'s Countries Visited"
+    else:
+        chart_title = "Countries visited by age"
     fig.update_layout(
-        title={"text": "Countries visited by age", "x": 0.5, "xanchor": "center"},
+        title={"text": chart_title, "x": 0.5, "xanchor": "center"},
         height=chart_height,
         plot_bgcolor="white",
         paper_bgcolor="white",
@@ -660,10 +669,10 @@ def toggle_residence_section(n_clicks, current_style):
     Input({'type': 'res_from_month', 'index': ALL}, 'value'),
     Input({'type': 'res_until_year', 'index': ALL}, 'value'),
     Input({'type': 'res_until_month', 'index': ALL}, 'value'),
+    Input('dob_year', 'value'),
+    Input('dob_month', 'value'),
     State('residence_periods_container', 'children'),
     State('country_select', 'value'),
-    State('dob_year', 'value'),
-    State('dob_month', 'value'),
     State({'type': 'visit_year', 'code': ALL}, 'value'),
     State({'type': 'visit_month', 'code': ALL}, 'value'),
     State({'type': 'visit_year', 'code': ALL}, 'id'),
@@ -675,7 +684,7 @@ def toggle_residence_section(n_clicks, current_style):
     State({'type': 'res_until_month', 'index': ALL}, 'value'),
     prevent_initial_call=False
 )
-def update_residence_periods(add_clicks, remove_clicks, res_section_style, input_countries, input_from_years, input_from_months, input_until_years, input_until_months, current_children, visited_countries, dob_year, dob_month, visit_years, visit_months, visit_year_ids, visit_month_ids, res_countries, res_from_years, res_from_months, res_until_years, res_until_months):
+def update_residence_periods(add_clicks, remove_clicks, res_section_style, input_countries, input_from_years, input_from_months, input_until_years, input_until_months, dob_year, dob_month, current_children, visited_countries, visit_years, visit_months, visit_year_ids, visit_month_ids, res_countries, res_from_years, res_from_months, res_until_years, res_until_months):
     # Use the input_* values for the current state
     res_countries = input_countries
     res_from_years = input_from_years
@@ -698,6 +707,16 @@ def update_residence_periods(add_clicks, remove_clicks, res_section_style, input
     
     def build_row(idx, country, from_year, from_month, until_year, until_month, options):
         allowed_country_options = options if options else []
+        # For the first row, force from_year and from_month to dob_year/dob_month
+        if idx == 0:
+            from_year = dob_year if dob_year is not None else current_year
+            from_month = dob_month if dob_month is not None else current_month
+        year_options = [y for y in range(dob_year if dob_year is not None else current_year, current_year + 1)]
+        if from_year not in year_options:
+            year_options = [from_year] + year_options
+        month_options = [(months_full[i], i+1) for i in range(12)]
+        if from_month not in [m[1] for m in month_options]:
+            month_options = [(months_full[from_month-1], from_month)] + month_options
         return html.Div([
             html.Div([
                 dcc.Dropdown(
@@ -711,13 +730,13 @@ def update_residence_periods(add_clicks, remove_clicks, res_section_style, input
             html.Div([
                 dcc.Dropdown(
                     id={'type': 'res_from_year', 'index': idx},
-                    options=[{'label': str(y), 'value': y} for y in range(dob_year, current_year + 1)],
+                    options=[{'label': str(y), 'value': y} for y in year_options],
                     value=from_year,
                     style={'width': '100px', 'marginRight': '6px', 'fontSize': 15, 'display': 'inline-block'}
                 ),
                 dcc.Dropdown(
                     id={'type': 'res_from_month', 'index': idx},
-                    options=[{'label': m, 'value': i+1} for i, m in enumerate(months_full)],
+                    options=[{'label': m, 'value': v} for m, v in month_options],
                     value=from_month,
                     style={'width': '80px', 'fontSize': 15, 'display': 'inline-block'}
                 ),
@@ -725,13 +744,13 @@ def update_residence_periods(add_clicks, remove_clicks, res_section_style, input
             html.Div([
                 dcc.Dropdown(
                     id={'type': 'res_until_year', 'index': idx},
-                    options=[{'label': str(y), 'value': y} for y in range(dob_year, current_year + 1)],
+                    options=[{'label': str(y), 'value': y} for y in year_options],
                     value=until_year,
                     style={'width': '100px', 'marginRight': '6px', 'fontSize': 15, 'display': 'inline-block'}
                 ),
                 dcc.Dropdown(
                     id={'type': 'res_until_month', 'index': idx},
-                    options=[{'label': m, 'value': i+1} for i, m in enumerate(months_full)],
+                    options=[{'label': m, 'value': v} for m, v in month_options],
                     value=until_month,
                     style={'width': '80px', 'fontSize': 15, 'display': 'inline-block'}
                 ),
@@ -766,8 +785,9 @@ def update_residence_periods(add_clicks, remove_clicks, res_section_style, input
     # Always keep at least one row
     if not res_countries or len(res_countries) == 0:
         default_country = options[0] if options else None
-        from_year = dob_year
-        from_month = dob_month
+        # Force from_year and from_month to dob_year and dob_month, even if previous values exist
+        from_year = dob_year if dob_year is not None else current_year
+        from_month = dob_month if dob_month is not None else current_month
         until_year = current_year
         until_month = current_month
         res_countries = [default_country]
@@ -775,6 +795,10 @@ def update_residence_periods(add_clicks, remove_clicks, res_section_style, input
         res_from_months = [from_month]
         res_until_years = [until_year]
         res_until_months = [until_month]
+    # If there is only one row, always force its from_year/from_month to dob_year/dob_month
+    if len(res_countries) == 1:
+        res_from_years[0] = dob_year if dob_year is not None else current_year
+        res_from_months[0] = dob_month if dob_month is not None else current_month
     # Add new row if add button clicked
     if triggered == 'add_residence_period_btn' and section_visible:
         idx = len(res_countries)
